@@ -1,0 +1,192 @@
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                specialty:
+                  type: string
+                qualification:
+                  type: string
+                experienceYears:
+                  type: integer
+                  minimum: 0
+                consultationFee:
+                  type: number
+                  minimum: 0
+                bio:
+                  type: string
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericSuccess'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Doctor not found
+  /bookings:
+    post:
+      tags: [Bookings]
+      summary: Book an available slot
+      description: Requires PATIENT role. The Idempotency-Key header is required to protect retries from creating duplicate bookings.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Client-generated unique key reused for retries of the same booking request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slotId]
+              properties:
+                slotId:
+                  type: string
+                  format: uuid
+            example:
+              slotId: 9a6e8c37-4d5b-4a67-8c9f-8cb7e60eac21
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericSuccess'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Slot not found
+        '409':
+          description: Slot unavailable or idempotency key conflicts with another request
+  /bookings/{consultationId}/cancel:
+    patch:
+      tags: [Bookings]
+      summary: Cancel a patient's booking
+      description: Requires PATIENT role and should only allow the booking owner to cancel.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: consultationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericSuccess'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Booking not found for this patient
+        '409':
+          description: Booking cannot be cancelled in its current state
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ApplicationId:
+      name: applicationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Invalid request body or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing, malformed, invalid, or expired JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated user does not have the required role
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    DoctorApplicationRequest:
+      type: object
+      required: [specialty, qualification, licenseNumber, experienceYears, consultationFee]
+      properties:
+        specialty:
+          type: string
+        qualification:
+          type: string
+        licenseNumber:
+          type: string
+        experienceYears:
+          type: integer
+          minimum: 0
+        consultationFee:
+          type: number
+          minimum: 0
+        bio:
+          type: string
+    LoginResponse:
+      type: object
+      description: Update this schema to match the exact login response envelope in your implementation.
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              description: JWT bearer token
