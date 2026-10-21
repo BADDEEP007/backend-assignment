@@ -1,192 +1,687 @@
-            format: uuid
+
+openapi: 3.0.3
+
+info:
+  title: Amrutam Telemedicine API
+  version: 1.0.0
+  description: >
+    API for patient registration and authentication, doctor applications,
+    doctor profiles and availability, appointment booking, cancellation,
+    and administrator review of doctor applications.
+
+servers:
+  - url: http://localhost:5000
+    description: Local development server
+
+tags:
+  - name: Authentication
+  - name: Users
+  - name: Doctor Applications
+  - name: Doctors
+  - name: Bookings
+  - name: Administration
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 3
+          example: Sample Patient
+        email:
+          type: string
+          format: email
+          example: patient@example.com
+        password:
+          type: string
+          minLength: 8
+          format: password
+          example: StrongPassword123!
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: patient@example.com
+        password:
+          type: string
+          minLength: 8
+          format: password
+          example: StrongPassword123!
+
+    SafeUser:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          example: Sample Patient
+        email:
+          type: string
+          format: email
+          example: patient@example.com
+
+    RegisterResponse:
+      type: object
+      properties:
+        mssg:
+          type: string
+          example: user created successfully
+        user:
+          $ref: "#/components/schemas/SafeUser"
+
+    LoginResponse:
+      type: object
+      properties:
+        mssg:
+          type: string
+          example: succefully logged in
+        user:
+          type: object
+          description: User object returned by the authentication service.
+          additionalProperties: true
+        token:
+          type: string
+          description: JWT access token.
+
+    ValidationError:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Validation error
+        details:
+          type: array
+          items:
+            type: string
+          example:
+            - '"email" must be a valid email'
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Request could not be completed
+
+    DoctorApplicationRequest:
+      type: object
+      description: Fields accepted by the doctor application service.
+      additionalProperties: true
+      example:
+        specialty: General Medicine
+        qualification: MBBS, MD General Medicine
+        licenseNumber: DEMO-MED-1001
+        experienceYears: 8
+        consultationFee: 600
+        bio: Sample doctor application.
+
+    DoctorApplicationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Doctor application submitted
+        data:
+          type: object
+          additionalProperties: true
+
+    AvailabilityRequest:
+      type: object
+      required:
+        - startAt
+        - endAt
+      properties:
+        startAt:
+          type: string
+          format: date-time
+          example: "2026-10-22T09:00:00.000Z"
+        endAt:
+          type: string
+          format: date-time
+          example: "2026-10-22T12:00:00.000Z"
+        slotDurationMinutes:
+          type: integer
+          default: 30
+          minimum: 1
+          example: 30
+
+    AvailabilityCreatedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Availability slots created
+        count:
+          type: integer
+          example: 6
+
+    DoctorAvailabilityResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Doctor availability fetched successfully
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    BookingRequest:
+      type: object
+      required:
+        - slotId
+      properties:
+        slotId:
+          type: string
+          description: ID of an available appointment slot.
+          example: 550e8400-e29b-41d4-a716-446655440000
+
+    BookingResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Consultation booked successfully
+        data:
+          type: object
+          additionalProperties: true
+
+    RejectApplicationRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          example: Please provide the required supporting information.
+
+    GenericSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          nullable: true
+          description: Resource returned by the service.
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+            - type: string
+
+paths:
+  /auth:
+    get:
+      tags:
+        - Users
+      summary: List users
+      description: Returns user IDs, names, and emails. Authentication is not enforced in the provided route.
+      responses:
+        "200":
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mssg:
+                    type: string
+                    example: success
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SafeUser"
+        "500":
+          description: Server error
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a patient account
+      description: Validates name, email, and password before calling the registration service.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: Registration succeeded or the account already exists
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/RegisterResponse"
+                  - type: object
+                    properties:
+                      mssg:
+                        type: string
+                      data:
+                        type: object
+                        additionalProperties: true
+        "400":
+          description: Validation failure or registration failure
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ValidationError"
+                  - $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected error
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Validation failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+        "500":
+          description: Login or unexpected error
+
+  /doctor-applications:
+    post:
+      tags:
+        - Doctor Applications
+      summary: Submit a doctor application
+      description: Patient authentication is required. Public registration creates patient accounts.
+      security:
+        - bearerAuth: []
+      x-required-role: PATIENT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoctorApplicationRequest"
+      responses:
+        "201":
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoctorApplicationResponse"
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: User is not a patient
+        "500":
+          description: Unexpected error
+
+  /doctors/{id}:
+    get:
+      tags:
+        - Doctors
+      summary: Get doctor profile
+      security:
+        - bearerAuth: []
+      x-required-role: PATIENT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Doctor profile ID.
+      responses:
+        "200":
+          description: Doctor profile retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mssg:
+                    type: string
+                    example: Data Fetch successfully
+                  data:
+                    type: object
+                    additionalProperties: true
+        "400":
+          description: Missing doctor ID
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: User is not a patient
+        "500":
+          description: Server error
+
+    patch:
+      tags:
+        - Doctors
+      summary: Update doctor profile
+      description: Restricted to administrators.
+      security:
+        - bearerAuth: []
+      x-required-role: ADMIN
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Doctor profile ID.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              properties:
-                specialty:
-                  type: string
-                qualification:
-                  type: string
-                experienceYears:
-                  type: integer
-                  minimum: 0
-                consultationFee:
-                  type: number
-                  minimum: 0
-                bio:
-                  type: string
+              additionalProperties: true
       responses:
-        '200':
-          description: Profile updated
+        "200":
+          description: Doctor profile updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericSuccess'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Doctor not found
+                $ref: "#/components/schemas/GenericSuccessResponse"
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: User is not an administrator
+        "500":
+          description: Server error
+
+  /doctors/availability/{id}:
+    get:
+      tags:
+        - Doctors
+      summary: Get doctor availability
+      security:
+        - bearerAuth: []
+      x-required-role: PATIENT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Doctor profile ID.
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: "2026-10-22T00:00:00.000Z"
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: "2026-10-23T00:00:00.000Z"
+      responses:
+        "200":
+          description: Availability retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoctorAvailabilityResponse"
+        "400":
+          description: Required fields are missing
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: User is not a patient
+        "500":
+          description: Server error
+
+  /doctors/availability:
+    post:
+      tags:
+        - Doctors
+      summary: Create doctor availability slots
+      description: Creates consecutive slots for the authenticated doctor's profile.
+      security:
+        - bearerAuth: []
+      x-required-role: DOCTOR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityRequest"
+      responses:
+        "201":
+          description: Availability slots created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityCreatedResponse"
+        "400":
+          description: Invalid availability details
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: User is not a doctor
+        "404":
+          description: Doctor profile not found
+        "500":
+          description: Server or database error
+
   /bookings:
     post:
-      tags: [Bookings]
-      summary: Book an available slot
-      description: Requires PATIENT role. The Idempotency-Key header is required to protect retries from creating duplicate bookings.
+      tags:
+        - Bookings
+      summary: Book an appointment slot
+      description: Books a slot for the authenticated patient.
       security:
-        - BearerAuth: []
+        - bearerAuth: []
+      x-required-role: PATIENT
       parameters:
         - name: Idempotency-Key
           in: header
           required: true
+          description: Unique key used to identify the booking request.
           schema:
             type: string
-          description: Client-generated unique key reused for retries of the same booking request.
+            minLength: 1
+          example: booking-request-20261022-001
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [slotId]
-              properties:
-                slotId:
-                  type: string
-                  format: uuid
-            example:
-              slotId: 9a6e8c37-4d5b-4a67-8c9f-8cb7e60eac21
+              $ref: "#/components/schemas/BookingRequest"
       responses:
-        '201':
-          description: Booking created
+        "201":
+          description: Appointment booked
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericSuccess'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Slot not found
-        '409':
-          description: Slot unavailable or idempotency key conflicts with another request
+                $ref: "#/components/schemas/BookingResponse"
+        "400":
+          description: Missing slot ID or idempotency key
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: User is not a patient
+        "500":
+          description: Booking failed
+
   /bookings/{consultationId}/cancel:
     patch:
-      tags: [Bookings]
-      summary: Cancel a patient's booking
-      description: Requires PATIENT role and should only allow the booking owner to cancel.
+      tags:
+        - Bookings
+      summary: Cancel a booking
       security:
-        - BearerAuth: []
+        - bearerAuth: []
+      x-required-role: PATIENT
       parameters:
         - name: consultationId
           in: path
           required: true
           schema:
             type: string
-            format: uuid
+          description: Consultation ID to cancel.
       responses:
-        '200':
+        "200":
           description: Booking cancelled
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericSuccess'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Booking not found for this patient
-        '409':
-          description: Booking cannot be cancelled in its current state
-components:
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-  parameters:
-    ApplicationId:
-      name: applicationId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-  responses:
-    BadRequest:
-      description: Invalid request body or parameters
-      content:
-        application/json:
+                $ref: "#/components/schemas/BookingResponse"
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: User is not a patient or cancellation is not permitted
+        "500":
+          description: Cancellation failed
+
+  /admin/doctor-applications:
+    get:
+      tags:
+        - Administration
+      summary: List pending doctor applications
+      security:
+        - bearerAuth: []
+      x-required-role: ADMIN
+      responses:
+        "200":
+          description: Applications retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: User is not an administrator
+        "500":
+          description: Server error
+
+  /admin/doctor-applications/{id}/approve:
+    patch:
+      tags:
+        - Administration
+      summary: Approve a doctor application
+      security:
+        - bearerAuth: []
+      x-required-role: ADMIN
+      parameters:
+        - name: id
+          in: path
+          required: true
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing, malformed, invalid, or expired JWT
-      content:
-        application/json:
+            type: string
+          description: Doctor application ID.
+      responses:
+        "200":
+          description: Application approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericSuccessResponse"
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: User is not an administrator
+        "500":
+          description: Server error
+
+  /admin/doctor-applications/{id}/reject:
+    patch:
+      tags:
+        - Administration
+      summary: Reject a doctor application
+      security:
+        - bearerAuth: []
+      x-required-role: ADMIN
+      parameters:
+        - name: id
+          in: path
+          required: true
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Forbidden:
-      description: Authenticated user does not have the required role
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-  schemas:
-    RegisterRequest:
-      type: object
-      required: [name, email, password]
-      properties:
-        name:
-          type: string
-          minLength: 1
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          minLength: 8
-    LoginRequest:
-      type: object
-      required: [email, password]
-      properties:
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-    DoctorApplicationRequest:
-      type: object
-      required: [specialty, qualification, licenseNumber, experienceYears, consultationFee]
-      properties:
-        specialty:
-          type: string
-        qualification:
-          type: string
-        licenseNumber:
-          type: string
-        experienceYears:
-          type: integer
-          minimum: 0
-        consultationFee:
-          type: number
-          minimum: 0
-        bio:
-          type: string
-    LoginResponse:
-      type: object
-      description: Update this schema to match the exact login response envelope in your implementation.
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          properties:
-            token:
-              type: string
-              description: JWT bearer token
+            type: string
+          description: Doctor application ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectApplicationRequest"
+      responses:
+        "200":
+          description: Application rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericSuccessResponse"
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: User is not an administrator
+        "500":
+          description: Server error

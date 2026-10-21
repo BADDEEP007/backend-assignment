@@ -16,25 +16,25 @@ const loginSchema  = Joi.object({
 
 const router = express.Router()
 
-router.get("/", async (req , res , next)=>{
+// router.get("/", async (req , res , next)=>{
 
-    try {
-        const users = await user_repo.findAll({
-            select:{
-                id:true,
-                name:true,
-                email:true
+//     try {
+//         const users = await user_repo.findAll({
+//             select:{
+//                 id:true,
+//                 name:true,
+//                 email:true
             
-            }
-        })
-        res.status(200).json({
-            'mssg':"success",
-            users
-        })
-    } catch (error) {
-        next(error)
-    }
-})
+//             }
+//         })
+//         res.status(200).json({
+//             'mssg':"success",
+//             users
+//         })
+//     } catch (error) {
+//         next(error)
+//     }
+// })
 
 router.post("/register",async (req,res , next)=>{
     try {

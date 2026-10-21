@@ -18,13 +18,42 @@ services:
 
     healthcheck:
       test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
-        ]
+        ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+    networks:
+      - amrutam-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      PORT: 5000
+      DATABASE_URL: ${DATABASE_URL}
+
+    ports:
+      - "5000:5000"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run dev"]
+
+    networks:
+      - amrutam-network
 
 volumes:
   postgres_data:
+
+networks:
+  amrutam-network:
+    driver: bridge
