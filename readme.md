@@ -75,6 +75,22 @@ Interactive API documentation is available at:
 
 Use Swagger UI to inspect available endpoints, review request schemas, and test API requests.
 
+
+###Prisma Studio
+Run the cmd to see the prisma studio
+```bash
+docker exec {backend-image-name} npm run studio
+``` 
+now the prisma studio is available on the  http://localhost:5555
+
+
+
+###to add admin in data 
+Run the cmd to add the admin user 
+```bash
+docker exec node prisma/seed.js
+```
+
 ### Stopping the application
 
 To stop the containers while preserving the database volume, run:
